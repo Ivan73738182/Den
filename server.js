@@ -6,7 +6,7 @@ app.use(express.json());
 
 const users = {}; 
 const tokens = {}; 
-const posts = []; // Здесь будем хранить посты
+const posts = []; 
 
 function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
@@ -20,7 +20,6 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: true, name: 'Den' });
 });
 
-// --- Регистрация и Вход ---
 app.post('/api/register', (req, res) => {
   let { name, username, password } = req.body || {};
   if (!name || !username || !password) return res.status(400).json({ error: 'Заполни все поля' });
@@ -50,7 +49,6 @@ app.post('/api/login', (req, res) => {
   res.json({ ok: true, name: user.name, username: user.username, token });
 });
 
-// --- Посты ---
 app.get('/api/posts', (req, res) => {
   res.json({ ok: true, posts: posts.reverse() }); 
 });
@@ -70,11 +68,33 @@ app.post('/api/posts', (req, res) => {
     authorName: users[username].name,
     authorUsername: username,
     text: text,
+    likes: [], 
     date: new Date().toISOString()
   };
   
   posts.push(post);
   res.json({ ok: true, post });
+});
+
+// Лайк поста
+app.post('/api/posts/:id/like', (req, res) => {
+  const auth = req.headers['authorization'] || '';
+  const token = auth.replace('Bearer ', '').trim();
+  const username = tokens[token];
+  if (!username) return res.status(401).json({ error: 'Не авторизован' });
+
+  const postId = parseInt(req.params.id);
+  const post = posts.find(p => p.id === postId);
+  if (!post) return res.status(404).json({ error: 'Пост не найден' });
+
+  const index = post.likes.indexOf(username);
+  if (index === -1) {
+    post.likes.push(username); 
+  } else {
+    post.likes.splice(index, 1); 
+  }
+  
+  res.json({ ok: true, likes: post.likes });
 });
 
 const PORT = process.env.PORT || 3000;
