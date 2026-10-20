@@ -20,62 +20,68 @@ app.get('/api/health', (req, res) => {
 });
 
 app.post('/api/register', (req, res) => {
-  const { email, password } = req.body || {};
+  let { username, password } = req.body || {};
 
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Нужны email и password' });
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Нужны имя и пароль' });
   }
-  if (!email.includes('@')) {
-    return res.status(400).json({ error: 'Неверный формат почты' });
+
+  // Убираем @, если пользователь его ввел
+  username = username.replace('@', '').toLowerCase();
+
+  if (username.length < 5) {
+    return res.status(400).json({ error: 'Имя должно быть не менее 5 символов' });
   }
   if (password.length < 4) {
     return res.status(400).json({ error: 'Пароль слишком короткий (мин. 4)' });
   }
-  if (users[email]) {
-    return res.status(409).json({ error: 'Эта почта уже занята' });
+  if (users[username]) {
+    return res.status(409).json({ error: 'Это имя уже занято. Придумай другое.' });
   }
 
   const token = makeToken();
-  users[email] = {
-    email,
+  users[username] = {
+    username,
     passwordHash: hashPassword(password),
     token
   };
-  tokens[token] = email;
+  tokens[token] = username;
 
-  console.log('Регистрация:', email);
-  res.json({ ok: true, email, token });
+  console.log('Регистрация:', username);
+  res.json({ ok: true, username, token });
 });
 
 app.post('/api/login', (req, res) => {
-  const { email, password } = req.body || {};
+  let { username, password } = req.body || {};
 
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Нужны email и password' });
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Нужны имя и пароль' });
   }
 
-  const user = users[email];
+  username = username.replace('@', '').toLowerCase();
+
+  const user = users[username];
   if (!user || user.passwordHash !== hashPassword(password)) {
-    return res.status(401).json({ error: 'Неверная почта или пароль' });
+    return res.status(401).json({ error: 'Неверное имя или пароль' });
   }
 
   const token = makeToken();
   user.token = token;
-  tokens[token] = email;
+  tokens[token] = username;
 
-  console.log('Вход:', email);
-  res.json({ ok: true, email, token });
+  console.log('Вход:', username);
+  res.json({ ok: true, username, token });
 });
 
 app.get('/api/me', (req, res) => {
   const auth = req.headers['authorization'] || '';
   const token = auth.replace('Bearer ', '').trim();
-  const email = tokens[token];
+  const username = tokens[token];
 
-  if (!email) {
+  if (!username) {
     return res.status(401).json({ error: 'Неверный токен' });
   }
-  res.json({ ok: true, email });
+  res.json({ ok: true, username });
 });
 
 const PORT = process.env.PORT || 3000;
